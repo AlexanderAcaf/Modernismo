@@ -126,13 +126,19 @@
     <h1>Sopa de letras <br><strong>Modernismo</strong></h1>
 
     <div class="container">
-        <!-- Panel superior de palabras en 3 columnas -->
         <div class="words-panel">
             <ul id="words-list" class="words-list"></ul>
         </div>
 
-        <!-- Tablero 15x15 -->
         <div id="board"></div>
+    </div>
+
+    <div id="win-screen" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); color: white; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center;">
+        <div style="background: #ffffff; color: #0f172a; padding: 24px; border-radius: 12px; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <h2 style="font-size: 24px; margin-bottom: 8px;">¡Felicidades!</h2>
+            <p style="margin-bottom: 16px; font-size: 14px; color: #475569;">Has encontrado todas las palabras.</p>
+            <button onclick="document.getElementById('win-screen').style.display='none'; location.reload();" style="background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Jugar de nuevo</button>
+        </div>
     </div>
 
     <script>
@@ -154,24 +160,96 @@
             { display: "Rubén Darío", normalized: "RUBENDARIO" }
         ];
 
-        // Matriz 15x15 con todas las 15 palabras cruzadas
-        const BOARD_MATRIX = [
-            ['R','U','B','E','N','D','A','R','I','O','A','Z','U','L','X'],
-            ['A','N','T','I','T','E','S','I','S','C','I','S','N','E','S'],
-            ['S','E','N','S','U','A','L','I','D','A','D','M','O','R','I'],
-            ['P','O','E','T','I','C','O','A','P','V','F','U','P','O','M'],
-            ['H','I','S','P','A','N','I','C','A','A','A','S','A','M','B'],
-            ['R','O','M','P','I','M','I','E','N','T','O','I','V','T','O'],
-            ['E','R','O','T','I','S','M','O','C','O','R','C','O','E','L'],
-            ['M','E','T','A','F','O','R','A','I','R','E','A','R','A','O'],
-            ['S','I','N','E','S','T','E','S','I','A','C','L','E','F','S'],
-            ['A','L','I','T','E','R','A','C','I','O','N','I','A','L','M'],
-            ['M','U','S','I','C','A','L','I','D','A','D','D','L','O','T'],
-            ['O','K','P','A','V','O','R','E','A','L','E','A','S','R','R'],
-            ['S','J','W','H','M','S','I','M','B','O','L','O','S','T','I'],
-            ['I','R','O','S','A','L','I','T','E','R','A','T','U','R','A'],
-            ['T','I','S','E','N','S','I','B','I','L','I','D','A','D','S']
-        ];
+        const BOARD_MATRIX = generateDynamicBoard(HIDDEN_WORDS, 15);
+
+        function generateDynamicBoard(wordsList, size = 15) {
+            // 8 direcciones posibles (Horizontal, Vertical, Diagonales y sus reversos)
+            const directions = [
+                [0, 1],   // Horizontal derecha
+                [0, -1],  // Horizontal izquierda
+                [1, 0],   // Vertical abajo
+                [-1, 0],  // Vertical arriba
+                [1, 1],   // Diagonal abajo-derecha
+                [-1, -1], // Diagonal arriba-izquierda
+                [1, -1],  // Diagonal abajo-izquierda
+                [-1, 1]   // Diagonal arriba-derecha
+            ];
+
+            let fullGridPlaced = false;
+            let grid = [];
+
+            // Reintentar la generación global hasta que TODAS las palabras queden dentro
+            while (!fullGridPlaced) {
+                grid = Array.from({ length: size }, () => Array(size).fill(''));
+                
+                // Copiar y ordenar palabras de la más larga a la más corta
+                const sortedWords = [...wordsList].sort((a, b) => b.normalized.length - a.normalized.length);
+                let allWordsSuccess = true;
+
+                for (const wordObj of sortedWords) {
+                    const word = wordObj.normalized;
+                    let placed = false;
+                    let attempts = 0;
+
+                    while (!placed && attempts < 1000) {
+                        attempts++;
+                        const dir = directions[Math.floor(Math.random() * directions.length)];
+                        const [dr, dc] = dir;
+
+                        const startR = Math.floor(Math.random() * size);
+                        const startC = Math.floor(Math.random() * size);
+
+                        // Validar si la palabra cabe dentro de los límites
+                        const endR = startR + dr * (word.length - 1);
+                        const endC = startC + dc * (word.length - 1);
+
+                        if (endR >= 0 && endR < size && endC >= 0 && endC < size) {
+                            let canPlace = true;
+                            
+                            for (let i = 0; i < word.length; i++) {
+                                const r = startR + dr * i;
+                                const c = startC + dc * i;
+                                // Comprobar que la casilla esté vacía o coincida la letra exactamente para cruce
+                                if (grid[r][c] !== '' && grid[r][c] !== word[i]) {
+                                    canPlace = false;
+                                    break;
+                                }
+                            }
+
+                            if (canPlace) {
+                                for (let i = 0; i < word.length; i++) {
+                                    const r = startR + dr * i;
+                                    const c = startC + dc * i;
+                                    grid[r][c] = word[i];
+                                }
+                                placed = true;
+                            }
+                        }
+                    }
+
+                    if (!placed) {
+                        allWordsSuccess = false;
+                        break; // Si falla una palabra, descartar intento y reiniciar tablero
+                    }
+                }
+
+                if (allWordsSuccess) {
+                    fullGridPlaced = true;
+                }
+            }
+
+            // Rellenar las casillas sobrantes con letras aleatorias
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    }
+                }
+            }
+
+            return grid;
+        }
 
         let isDragging = false;
         let selectedCells = [];
@@ -352,6 +430,13 @@
                 }
 
                 foundWords.add(matchedWord.normalized);
+            }
+
+            if (foundWords.size === HIDDEN_WORDS.length) {
+                setTimeout(() => {
+                    const winScreen = document.getElementById('win-screen');
+                    if (winScreen) winScreen.style.display = 'flex';
+                }, 300);
             }
 
             clearCurrentSelection();
