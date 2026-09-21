@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sopa de Letras - Modernismo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #e4e6ee;
+            color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 12px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #10203b;
+            padding: 4px 8px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        h1 strong {
+            color: #254080;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 460px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .words-panel {
+            width: 100%;
+            background: #ffffff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid #cbd5e1;
+        }
+
+        .words-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            list-style: none;
+            text-align: center;
+        }
+
+        .words-list li {
+            font-size: 10px;
+            font-weight: 700;
+            color: #475569;
+            padding: 5px 2px;
+            border-radius: 6px;
+            background-color: #f1f5f9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.2s ease;
+        }
+
+        .words-list li.found {
+            text-decoration: line-through;
+            color: #ffffff;
+            font-weight: 800;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        #board {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            grid-template-rows: repeat(15, 1fr);
+            gap: 2px;
+            background-color: #cbd5e1;
+            padding: 4px;
+            border-radius: 8px;
+            touch-action: none; /* Evita desplazamiento de página en pantallas táctiles */
+        }
+
+        .cell {
+            background-color: #ffffff;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: min(3.2vw, 13px);
+            font-weight: 700;
+            color: #1e293b;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .cell.selected {
+            background-color: #94a3b8;
+            color: #ffffff;
+        }
+
+        .cell.found {
+            color: #ffffff;
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sopa de letras <br><strong>Modernismo</strong></h1>
+
+    <div class="container">
+        <!-- Panel superior de palabras en 3 columnas -->
+        <div class="words-panel">
+            <ul id="words-list" class="words-list"></ul>
+        </div>
+
+        <!-- Tablero 15x15 -->
+        <div id="board"></div>
+    </div>
+
+    <script>
+        const HIDDEN_WORDS = [
+            { display: "Poético", normalized: "POETICO" },
+            { display: "Hispánica", normalized: "HISPANICA" },
+            { display: "Rompimiento", normalized: "ROMPIMIENTO" },
+            { display: "Erotismo", normalized: "EROTISMO" },
+            { display: "Sensualidad", normalized: "SENSUALIDAD" },
+            { display: "Metáfora", normalized: "METAFORA" },
+            { display: "Sinestesia", normalized: "SINESTESIA" },
+            { display: "Antítesis", normalized: "ANTITESIS" },
+            { display: "Aliteración", normalized: "ALITERACION" },
+            { display: "Musicalidad", normalized: "MUSICALIDAD" },
+            { display: "Símbolos", normalized: "SIMBOLOS" },
+            { display: "Cisne", normalized: "CISNE" },
+            { display: "Pavo real", normalized: "PAVOREAL" },
+            { display: "Azul", normalized: "AZUL" },
+            { display: "Rubén Darío", normalized: "RUBENDARIO" }
+        ];
+
+        // Matriz 15x15 con todas las 15 palabras cruzadas
+        const BOARD_MATRIX = [
+            ['R','U','B','E','N','D','A','R','I','O','A','Z','U','L','X'],
+            ['A','N','T','I','T','E','S','I','S','C','I','S','N','E','S'],
+            ['S','E','N','S','U','A','L','I','D','A','D','M','O','R','I'],
+            ['P','O','E','T','I','C','O','A','P','V','F','U','P','O','M'],
+            ['H','I','S','P','A','N','I','C','A','A','A','S','A','M','B'],
+            ['R','O','M','P','I','M','I','E','N','T','O','I','V','T','O'],
+            ['E','R','O','T','I','S','M','O','C','O','R','C','O','E','L'],
+            ['M','E','T','A','F','O','R','A','I','R','E','A','R','A','O'],
+            ['S','I','N','E','S','T','E','S','I','A','C','L','E','F','S'],
+            ['A','L','I','T','E','R','A','C','I','O','N','I','A','L','M'],
+            ['M','U','S','I','C','A','L','I','D','A','D','D','L','O','T'],
+            ['O','K','P','A','V','O','R','E','A','L','E','A','S','R','R'],
+            ['S','J','W','H','M','S','I','M','B','O','L','O','S','T','I'],
+            ['I','R','O','S','A','L','I','T','E','R','A','T','U','R','A'],
+            ['T','I','S','E','N','S','I','B','I','L','I','D','A','D','S']
+        ];
+
+        let isDragging = false;
+        let selectedCells = [];
+        let startCell = null;
+        let foundWords = new Set();
+
+        const boardContainer = document.getElementById('board');
+        const wordsListContainer = document.getElementById('words-list');
+
+        function initGame() {
+            foundWords.clear();
+            renderWordList();
+            renderBoard();
+            registerEventListeners();
+        }
+
+        function renderWordList() {
+            wordsListContainer.innerHTML = '';
+            HIDDEN_WORDS.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item.display;
+                li.id = `word-${item.normalized}`;
+                wordsListContainer.appendChild(li);
+            });
+        }
+
+        function renderBoard() {
+            boardContainer.innerHTML = '';
+            for (let r = 0; r < 15; r++) {
+                for (let c = 0; c < 15; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.textContent = BOARD_MATRIX[r][c];
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    boardContainer.appendChild(cell);
+                }
+            }
+        }
+
+        function getRandomVibrantColor() {
+            const hue = Math.floor(Math.random() * 360);
+            return `hsl(${hue}, 75%, 40%)`;
+        }
+
+        function calculateLinePath(start, end) {
+            const path = [];
+            const r1 = parseInt(start.dataset.row);
+            const c1 = parseInt(start.dataset.col);
+            const r2 = parseInt(end.dataset.row);
+            const c2 = parseInt(end.dataset.col);
+
+            const dr = r2 - r1;
+            const dc = c2 - c1;
+
+            const steps = Math.max(Math.abs(dr), Math.abs(dc));
+            if (steps === 0) return [start];
+
+            const stepR = dr === 0 ? 0 : dr / steps;
+            const stepC = dc === 0 ? 0 : dc / steps;
+
+            // Filtrar únicamente trayectorias en línea recta (rectas u ortogonales)
+            if (stepR !== 0 && stepC !== 0 && Math.abs(stepR) !== Math.abs(stepC)) {
+                return [start];
+            }
+
+            for (let i = 0; i <= steps; i++) {
+                const currR = Math.round(r1 + i * stepR);
+                const currC = Math.round(c1 + i * stepC);
+                const targetCell = boardContainer.querySelector(`.cell[data-row="${currR}"][data-col="${currC}"]`);
+                if (targetCell) path.push(targetCell);
+            }
+
+            return path;
+        }
+
+        function highlightSelection(endCell) {
+            clearCurrentSelection();
+            if (!startCell || !endCell) return;
+
+            selectedCells = calculateLinePath(startCell, endCell);
+            selectedCells.forEach(cell => {
+                if (!cell.classList.contains('found')) {
+                    cell.classList.add('selected');
+                }
+            });
+        }
+
+        function clearCurrentSelection() {
+            selectedCells.forEach(cell => cell.classList.remove('selected'));
+            selectedCells = [];
+        }
+
+        function registerEventListeners() {
+            // Eventos de Mouse
+            boardContainer.onmousedown = (e) => {
+                if (e.target.classList.contains('cell')) {
+                    isDragging = true;
+                    startCell = e.target;
+                    highlightSelection(startCell);
+                }
+            };
+
+            boardContainer.onmousemove = (e) => {
+                if (isDragging) {
+                    const cell = document.elementFromPoint(e.clientX, e.clientY);
+                    if (cell && cell.classList.contains('cell')) {
+                        highlightSelection(cell);
+                    }
+                }
+            };
+
+            window.onmouseup = () => {
+                if (isDragging) {
+                    isDragging = false;
+                    validateSelection();
+                    startCell = null;
+                }
+            };
+
+            // Eventos Táctiles (Móviles)
+            boardContainer.ontouchstart = (e) => {
+                const touch = e.touches[0];
+                const cell = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (cell && cell.classList.contains('cell')) {
+                    isDragging = true;
+                    startCell = cell;
+                    highlightSelection(startCell);
+                }
+            };
+
+            boardContainer.ontouchmove = (e) => {
+                if (isDragging) {
+                    const touch = e.touches[0];
+                    const cell = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (cell && cell.classList.contains('cell')) {
+                        highlightSelection(cell);
+                    }
+                }
+            };
+
+            window.ontouchend = () => {
+                if (isDragging) {
+                    isDragging = false;
+                    validateSelection();
+                    startCell = null;
+                }
+            };
+        }
+
+        function validateSelection() {
+            if (selectedCells.length === 0) return;
+
+            const selectedString = selectedCells.map(c => c.textContent).join('');
+            const reversedString = selectedString.split('').reverse().join('');
+
+            // Coincidencia exacta (al derecho o al revés)
+            const matchedWord = HIDDEN_WORDS.find(item => 
+                !foundWords.has(item.normalized) && 
+                (selectedString === item.normalized || reversedString === item.normalized)
+            );
+
+            if (matchedWord) {
+                const randomColor = getRandomVibrantColor();
+
+                // Marcar celdas en el tablero
+                selectedCells.forEach(cell => {
+                    cell.classList.remove('selected');
+                    cell.classList.add('found');
+                    cell.style.backgroundColor = randomColor;
+                });
+
+                // Marcar palabra en la lista superior
+                const listItem = document.getElementById(`word-${matchedWord.normalized}`);
+                if (listItem) {
+                    listItem.classList.add('found');
+                    listItem.style.backgroundColor = randomColor;
+                }
+
+                foundWords.add(matchedWord.normalized);
+            }
+
+            clearCurrentSelection();
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
